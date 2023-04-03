@@ -1,20 +1,37 @@
 import { Image, StyleSheet, Text, TouchableOpacity, View, Dimensions } from "react-native";
 import React from "react";
 import type { ImagePickerAsset } from "expo-image-picker";
+import Toast from "react-native-toast-message";
+import * as MediaLibrary from "expo-media-library";
 
 const { width } = Dimensions.get("screen");
 
 type ImagePreviewProps = {
   image: ImagePickerAsset;
-  onSave: () => void;
   onCancel: () => void;
 };
 
-const ImagePreview: React.FC<ImagePreviewProps> = ({
-  image,
-  onSave,
-  onCancel,
-}): React.ReactElement => {
+const ImagePreview: React.FC<ImagePreviewProps> = ({ image, onCancel }): React.ReactElement => {
+  const saveToGallery = async () => {
+    const { granted } = await MediaLibrary.requestPermissionsAsync();
+
+    if (!granted) {
+      Toast.show({ type: "error", text1: "Failed to save" });
+      onCancel();
+      return;
+    }
+
+    try {
+      await MediaLibrary.saveToLibraryAsync(image.uri);
+      onCancel();
+      Toast.show({ type: "success", text1: "Saved" });
+    } catch (err) {
+      Toast.show({ type: "error", text1: "Failed to save" });
+      onCancel();
+      return;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.container}>
@@ -32,7 +49,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
           <Text style={styles.actionText}>Cancel</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={onSave} style={[styles.action, styles.save]}>
+        <TouchableOpacity onPress={saveToGallery} style={[styles.action, styles.save]}>
           <Text style={styles.actionText}>Save</Text>
         </TouchableOpacity>
       </View>

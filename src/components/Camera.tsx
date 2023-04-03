@@ -1,15 +1,11 @@
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  Dimensions,
-} from "react-native";
-import React, { useEffect, useRef, useState } from "react";
+import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from "react-native";
+import React, { useEffect, useState } from "react";
 import { Camera as ExpoCamera, CameraType } from "expo-camera";
+import { manipulateAsync, FlipType } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import CameraToolbar from "./CameraToolbar";
+import { ActivityIndicator } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 const { width, height } = Dimensions.get("screen");
 
@@ -23,13 +19,26 @@ type CameraProps = {
 
 const Camera: React.FC<CameraProps> = ({ onImageLoaded }): React.ReactElement => {
   const [cameraType, setCameraType] = useState(CameraType.back);
-  const [cameraPermissions, requestCameraPermissions] = ExpoCamera.useCameraPermissions();
   const [camera, setCamera] = useState<ExpoCamera>(null);
+  const [permissions, setPermissions] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const requestCameraPermissions = async () => {
+    const perm = await ExpoCamera.requestCameraPermissionsAsync();
+    setPermissions(perm.granted);
+    setLoading(false);
+  };
 
   const takePhoto = async () => {
     if (camera) {
       const image = await camera.takePictureAsync();
-      onImageLoaded(image);
+
+      if (cameraType === CameraType.front) {
+        const flippedImage = await manipulateAsync(image.uri, [{ flip: FlipType.Horizontal }]);
+        onImageLoaded(flippedImage);
+      } else {
+        onImageLoaded(image);
+      }
     }
   };
 
@@ -37,33 +46,34 @@ const Camera: React.FC<CameraProps> = ({ onImageLoaded }): React.ReactElement =>
     setCameraType((prev) => (prev === CameraType.back ? CameraType.front : CameraType.back));
 
   const openGallery = async () => {
+    setLoading(true);
     try {
-      const photo = await ImagePicker.launchImageLibraryAsync();
-      onImageLoaded(photo.assets[0]);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+      const photo = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      });
 
-  const requestPermissions = async () => {
-    if (cameraPermissions && !cameraPermissions.granted) {
-      requestCameraPermissions();
+      if (!photo.canceled) {
+        onImageLoaded(photo.assets[0]);
+      }
+    } catch (err) {
+      console.error("catch - ", err);
     }
+    setLoading(true);
   };
 
   useEffect(() => {
-    requestPermissions();
-  }, [cameraPermissions]);
+    requestCameraPermissions();
+  }, []);
 
-  if (!cameraPermissions) {
+  if (loading) {
     return (
-      <View style={[styles.container, styles.permissions]}>
-        <ActivityIndicator size="large" />
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color="#7DAF9C" />
       </View>
     );
   }
 
-  if (!cameraPermissions.granted) {
+  if (!permissions) {
     return (
       <View style={[styles.container, styles.permissions]}>
         <Text style={styles.permissionsText}>
@@ -79,14 +89,14 @@ const Camera: React.FC<CameraProps> = ({ onImageLoaded }): React.ReactElement =>
   }
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={styles.container} entering={FadeIn}>
       <ExpoCamera style={styles.camera} type={cameraType} ref={(ref) => setCamera(ref)} />
       <CameraToolbar
         onCameraFlip={changeCameraType}
         onOpenGallery={openGallery}
         onTakePhoto={takePhoto}
       />
-    </View>
+    </Animated.View>
   );
 };
 
@@ -97,6 +107,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: PADDING_TOP,
     backgroundColor: "#222",
+  },
+  loading: {
+    flex: 1,
+    backgroundColor: "#222",
+    justifyContent: "center",
+    alignItems: "center",
   },
   camera: {
     height: CAMERA_HEIGHT,

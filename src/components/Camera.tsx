@@ -6,6 +6,8 @@ import * as ImagePicker from "expo-image-picker";
 import CameraToolbar from "./CameraToolbar";
 import { ActivityIndicator } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
+import CameraGrid from "./CameraGrid";
+import CameraAccelerometer from "./CameraAccelerometer";
 
 const { width, height } = Dimensions.get("screen");
 
@@ -90,7 +92,11 @@ const Camera: React.FC<CameraProps> = ({ onImageLoaded }): React.ReactElement =>
 
   return (
     <Animated.View style={styles.container} entering={FadeIn}>
-      <ExpoCamera style={styles.camera} type={cameraType} ref={(ref) => setCamera(ref)} />
+      <ExpoCamera style={styles.camera} type={cameraType} ref={(ref) => setCamera(ref)}>
+        <CameraGrid enabled size={3} />
+        <CameraAccelerometer enabled />
+      </ExpoCamera>
+
       <CameraToolbar
         onCameraFlip={changeCameraType}
         onOpenGallery={openGallery}
@@ -116,6 +122,7 @@ const styles = StyleSheet.create({
   },
   camera: {
     height: CAMERA_HEIGHT,
+    position: "relative",
   },
   permissions: {
     justifyContent: "center",
